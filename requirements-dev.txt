@@ -1,0 +1,10 @@
+# Ferramentas de desenvolvimento (análise estática e testes) — Python 3.12
+#
+#   python3 -m venv .venv
+#   source .venv/bin/activate
+#   pip install -r requirements-dev.txt
+
+ruff==0.17.4
+mypy==2.4.1
+radon==6.0.1
+pytest==9.2.0

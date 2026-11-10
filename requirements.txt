@@ -1,0 +1,18 @@
+# Dependências do projeto — Python 3.12
+#
+#   python3 -m venv .venv
+#   source .venv/bin/activate
+#   pip install -r requirements.txt -r requirements-dev.txt
+
+numpy==2.5.4
+scipy==1.18.1
+scikit-learn==1.9.1
+pandas==3.1.1
+
+# Gráficos do relatório
+matplotlib==3.11.2
+seaborn==0.13.2
+
+# Permitida pela especificação apenas como suporte; gargalos (MST, matching)
+# devem passar por profiling de tempo e memória em nível de subrotina.
+networkx==3.7
