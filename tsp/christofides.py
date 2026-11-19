@@ -21,6 +21,7 @@ import numpy as np
 from tsp.agm import VetorPais, agm_prim, arestas_agm, graus_agm
 from tsp.emparelhamento import emparelhamento_perfeito_minimo
 from tsp.instancia import MatrizCustos
+from tsp.medicao import MEDIDOR_NULO, Medidor
 from tsp.tour import Tour, custo_tour
 from tsp.twice_around_the_tree import remover_repetidos
 
@@ -62,12 +63,26 @@ def circuito_euleriano(
     return circuito
 
 
-def christofides(custos: MatrizCustos, raiz: int = 0) -> tuple[int, Tour]:
-    """Devolve ``(custo, tour)``; o tour começa em ``raiz``."""
+def christofides(
+    custos: MatrizCustos, raiz: int = 0, medidor: Medidor = MEDIDOR_NULO
+) -> tuple[int, Tour]:
+    """Devolve ``(custo, tour)``; o tour começa em ``raiz``.
+
+    Etapas medidas: ``agm``, ``impares``, ``emparelhamento``, ``euleriano``,
+    ``atalhos``, ``custo``.
+    """
     n = len(custos)
-    pai = agm_prim(custos, raiz)
-    impares = vertices_grau_impar(pai)
-    emparelhamento = emparelhamento_perfeito_minimo(custos, impares)
-    multigrafo = arestas_agm(pai) + emparelhamento
-    tour = remover_repetidos(circuito_euleriano(n, multigrafo, raiz))
-    return custo_tour(custos, tour), tour
+    with medidor.etapa("agm"):
+        pai = agm_prim(custos, raiz)
+    with medidor.etapa("impares"):
+        impares = vertices_grau_impar(pai)
+    with medidor.etapa("emparelhamento"):
+        emparelhamento = emparelhamento_perfeito_minimo(custos, impares)
+    with medidor.etapa("euleriano"):
+        multigrafo = arestas_agm(pai) + emparelhamento
+        circuito = circuito_euleriano(n, multigrafo, raiz)
+    with medidor.etapa("atalhos"):
+        tour = remover_repetidos(circuito)
+    with medidor.etapa("custo"):
+        custo = custo_tour(custos, tour)
+    return custo, tour

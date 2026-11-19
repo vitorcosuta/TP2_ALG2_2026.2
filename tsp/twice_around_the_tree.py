@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from tsp.agm import VetorPais, agm_prim, filhos_agm
 from tsp.instancia import MatrizCustos
+from tsp.medicao import MEDIDOR_NULO, Medidor
 from tsp.tour import Tour, custo_tour
 
 
@@ -53,8 +54,19 @@ def remover_repetidos(passeio: list[int]) -> Tour:
     return tour
 
 
-def twice_around_the_tree(custos: MatrizCustos, raiz: int = 0) -> tuple[int, Tour]:
-    """Devolve ``(custo, tour)``; o tour começa em ``raiz``."""
-    pai = agm_prim(custos, raiz)
-    tour = remover_repetidos(caminhamento_pre_ordem(pai, raiz))
-    return custo_tour(custos, tour), tour
+def twice_around_the_tree(
+    custos: MatrizCustos, raiz: int = 0, medidor: Medidor = MEDIDOR_NULO
+) -> tuple[int, Tour]:
+    """Devolve ``(custo, tour)``; o tour começa em ``raiz``.
+
+    Etapas medidas: ``agm``, ``pre_ordem``, ``atalhos``, ``custo``.
+    """
+    with medidor.etapa("agm"):
+        pai = agm_prim(custos, raiz)
+    with medidor.etapa("pre_ordem"):
+        passeio = caminhamento_pre_ordem(pai, raiz)
+    with medidor.etapa("atalhos"):
+        tour = remover_repetidos(passeio)
+    with medidor.etapa("custo"):
+        custo = custo_tour(custos, tour)
+    return custo, tour
