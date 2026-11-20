@@ -54,6 +54,7 @@ def algoritmo(custos, medidor: Medidor = MEDIDOR_NULO):
     with medidor.etapa("agm"):
         ...
 
+
 m = medir(lambda md: algoritmo(custos, medidor=md), repeticoes=10)
 m.linhas()  # uma linha por etapa → tabela `subrotinas`
 ```
@@ -76,16 +77,24 @@ m.linhas()  # uma linha por etapa → tabela `subrotinas`
 
 Executado **5 vezes por instância**, uma por estratégia de warm-start.
 
-| Medida | Usada em |
-|---|---|
-| Nós expandidos, nós podados, profundidade máxima | E2 |
-| Tempo total; tempo do cálculo do limite inferior | E1, E2 |
-| Pico de memória | E1 (cópias de matriz, GC) |
-| Custo final; status OK ou NA (30 min) | ótimo de referência; ponto de colapso |
-| **Contadores e melhor tour também quando estoura o tempo** | exigido pela especificação |
+Implementação: `tsp/branch_and_bound.py`. Tudo abaixo está em
+`ResultadoBnB`, inclusive quando o tempo estoura (status NA).
 
-**Pendência:** hoje o `TimeoutError` do `branch_and_bound.py` descarta os
-contadores e o melhor tour. Ele precisa devolvê-los no caso NA.
+| Medida (campo de `ResultadoBnB`) | Usada em |
+|---|---|
+| `nos_expandidos`, `nos_podados`, `profundidade_maxima`, `melhorias` | E2 |
+| `custo_inicial` (limite superior do warm-start), `limite_raiz` | E2 |
+| `tempo_s`, `tempo_penalidades_s`, `tempo_limite_inferior_s` | E1, E2 |
+| Pico de memória (via `medir`, etapas `penalidades` e `busca`) | E1 (cópias de matriz, GC) |
+| `custo`, `tour`, `status` (OK ou NA após 30 min) | ótimo de referência; ponto de colapso |
+
+- O limite inferior padrão é o de **Held-Karp** (AGM com penalidades
+  calculadas na raiz). `dois_menores` e `agm` continuam disponíveis e podem
+  ser comparados no relatório (seção 2: "por que um limite falha").
+- `tempo_limite_inferior_s` só é preenchido com `cronometrar_limite=True`,
+  que custa ~0,1 µs por chamada.
+- Teste com 60 s e warm-start do Christofides: todas as instâncias com
+  N ≤ 42 e eil51 foram resolvidas; att48, berlin52 e st70 estouraram.
 
 ### 2.2 Heurísticas de warm-start
 
@@ -219,10 +228,9 @@ fonte LaTeX (padrão SBC), via GitHub.
 ## 6. Ordem de execução
 
 1. **Feito:** leitor de instâncias, AGM, Twice-around-the-tree, Christofides,
-   mecanismo de medição.
-2. **Próximo:** terminar o B&B (limite inferior; contadores e melhor tour no
-   caso NA) e as três heurísticas de warm-start. **Disparar as execuções do
-   B&B no mesmo dia.**
+   mecanismo de medição, Branch-and-Bound.
+2. **Próximo:** as três heurísticas de warm-start (trivial, vizinho mais
+   próximo, fecho convexo). **Disparar as execuções do B&B no mesmo dia.**
 3. **Enquanto o B&B roda:** script que gera os CSVs, E1 dos aproximados,
    features, seções 1 e 2 do relatório.
 4. **Com os resultados do B&B:** gaps, E2, E3 e conclusões.
