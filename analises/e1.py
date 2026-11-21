@@ -28,6 +28,7 @@ from scipy.optimize import OptimizeWarning, curve_fit
 from analises.comum import FIGURAS, TABELAS, ler_resultado, salvar_figura, salvar_tabela
 
 ENTRADA = "subrotinas_aleatorias_e1.csv"
+ENTRADA_BRUTOS = "tempos_brutos_e1.csv"
 SAIDA_REGRESSAO = "regressao_e1_aproximados.csv"
 PASTA_FIGURAS = "e1"
 
@@ -108,9 +109,12 @@ def melhores_ajustes(regressao: pd.DataFrame, metrica: str) -> pd.DataFrame:
 
 
 def gerar_graficos(
-    dados: pd.DataFrame, regressao: pd.DataFrame, pasta: Path
+    dados: pd.DataFrame,
+    regressao: pd.DataFrame,
+    pasta: Path,
+    brutos: pd.DataFrame | None = None,
 ) -> list[Path]:
-    """Medição (mediana) e curva do melhor modelo para cada alvo."""
+    """Repetições individuais (azul), mediana (vermelho) e curva do melhor modelo."""
     import matplotlib.pyplot as plt
 
     melhores = melhores_ajustes(regressao, "tempo_mediana_s").set_index(
@@ -129,13 +133,35 @@ def gerar_graficos(
         y_suave = MODELOS[melhor["modelo"]](x_suave, melhor["a"], melhor["b"])
 
         figura, eixo = plt.subplots(figsize=(7, 4.5))
-        eixo.scatter(x, y, label="Medido (mediana)", color="#1f77b4", zorder=3)
+        if brutos is not None:
+            sub_brutos = brutos[
+                (brutos["algoritmo"] == alg) & (brutos["etapa"] == etapa)
+            ]
+            eixo.scatter(
+                sub_brutos[var_x],
+                sub_brutos["tempo_s"],
+                label="Repetições individuais",
+                color="#1f77b4",
+                alpha=0.35,
+                s=22,
+                zorder=2,
+            )
+        eixo.scatter(
+            x,
+            y,
+            label="Mediana",
+            color="#d62728",
+            s=40,
+            zorder=4,
+        )
         eixo.plot(
             x_suave,
             y_suave,
             label=f"Ajuste {melhor['modelo']} ($R^2={melhor['r2']:.4f}$)",
-            color="#d62728",
-            linewidth=2,
+            color="#222222",
+            linestyle="--",
+            linewidth=1.8,
+            zorder=3,
         )
         eixo.set(title=f"{alg} — {etapa}", xlabel=var_x, ylabel="Tempo (s)")
         eixo.legend()
@@ -151,9 +177,10 @@ def main(
     pasta_figuras: Path = FIGURAS,
 ) -> pd.DataFrame:
     dados = ler_resultado(ENTRADA, pasta_resultados)
+    brutos = ler_resultado(ENTRADA_BRUTOS, pasta_resultados)
     regressao = regressoes(dados)
     destino = salvar_tabela(regressao, SAIDA_REGRESSAO, pasta_tabelas)
-    figuras = gerar_graficos(dados, regressao, pasta_figuras / PASTA_FIGURAS)
+    figuras = gerar_graficos(dados, regressao, pasta_figuras / PASTA_FIGURAS, brutos=brutos)
 
     print("=== Melhor ajuste de TEMPO por etapa (maior R²) ===")
     colunas = ["algoritmo", "etapa", "variavel_x", "modelo", "r2", "rmse"]
