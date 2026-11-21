@@ -81,6 +81,7 @@ def rodar_tsplib(pasta_instancias: Path, desativar_gc: bool = False) -> None:
         inst = carregar_instancia(arquivo)
         custos = inst.custos
         n = inst.dimensao
+        nome_inst = inst.nome.removesuffix(".tsp")  # algumas têm NAME com ".tsp"
 
         pai = agm_prim(custos)
         c_agm = custo_agm(custos, pai)
@@ -99,7 +100,7 @@ def rodar_tsplib(pasta_instancias: Path, desativar_gc: bool = False) -> None:
             execucoes.append(
                 {
                     "algoritmo": nome_alg,
-                    "instancia": inst.nome,
+                    "instancia": nome_inst,
                     "n": n,
                     "k_impares": k_impares,
                     "custo": custo_sol,
@@ -120,7 +121,7 @@ def rodar_tsplib(pasta_instancias: Path, desativar_gc: bool = False) -> None:
                 subrotinas.append(
                     {
                         "algoritmo": nome_alg,
-                        "instancia": inst.nome,
+                        "instancia": nome_inst,
                         "n": n,
                         "k_impares": k_impares,
                         "gc_desativado": desativar_gc,
@@ -128,7 +129,7 @@ def rodar_tsplib(pasta_instancias: Path, desativar_gc: bool = False) -> None:
                     }
                 )
 
-        print(f"Concluído: {inst.nome} (N={n}, k={k_impares}, gc_off={desativar_gc})")
+        print(f"Concluído: {nome_inst} (N={n}, k={k_impares}, gc_off={desativar_gc})")
 
     sufixo = "_sem_gc" if desativar_gc else ""
     _salvar_csv(PASTA_SAIDA / f"execucoes_aproximados{sufixo}.csv", execucoes)

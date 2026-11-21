@@ -291,13 +291,136 @@ fonte LaTeX (padrão SBC), via GitHub.
 
 ---
 
-## 6. Ordem de execução
+## 6. Plano de execução dos scripts
 
-1. **Feito:** leitor de instâncias, AGM, Twice-around-the-tree, Christofides,
-   mecanismo de medição, Branch-and-Bound, features, heurísticas de
-   warm-start, scripts dos aproximados.
-   Script do B&B (`experimentos/branch_and_bound.py`).
-2. **Próximo:** **disparar as execuções do B&B**, divididas entre as máquinas.
-3. **Enquanto o B&B roda:** script que gera os CSVs, E1 dos aproximados,
-   features, seções 1 e 2 do relatório.
-4. **Com os resultados do B&B:** gaps, E2, E3 e conclusões.
+### 6.1 Princípio: o que pode ser paralelizado e onde rodar
+
+Cada execução roda em **um núcleo** (Python puro), então um processador mais
+rápido por núcleo diminui o tempo de cada execução; mais núcleos só ajudam
+rodando várias execuções ao mesmo tempo (`--processos`). Daí duas regras:
+
+1. **Tudo que vira tempo comparado (regressões do E1, trade-off do E2) roda na
+   mesma máquina, em sequência, com a máquina ociosa.** Processos simultâneos
+   disputam cache e memória e inflam os tempos.
+2. **Paralelizar só o que é longo e cujo tempo não é a medida:** o B&B nas
+   instâncias grandes, que estoura os 30 min de qualquer forma.
+
+Custo, tour, gap e nós expandidos (quando o status é OK) **não dependem da
+máquina**: são determinísticos.
+
+### 6.2 Inventário
+
+Durações medidas num Intel i5-1135G7 (4 núcleos físicos).
+
+| Script | Gera | Duração | Paralelizar? | Onde rodar |
+|---|---|---|---|---|
+| `experimentos.features` | `features.csv` | segundos | não precisa | qualquer máquina |
+| `experimentos.aproximados_tsplib` | `execucoes_aproximados*.csv`, `subrotinas_aproximados*.csv` (com e sem GC) | ~2 s | **não** (tempo é a medida) | máquina de referência |
+| `experimentos.aproximados_aleatorios` | `subrotinas_aleatorias_e1.csv`, `regressao_e1_aproximados.csv`, `graficos_e1/` | ~5 min (Christofides com N=1000 leva ~11 s por execução) | **não** | máquina de referência |
+| `experimentos.branch_and_bound`, 9 pequenas | `bnb_pequenas.csv` | ~2 min | **não** (`--processos 1`) | máquina de referência |
+| `experimentos.branch_and_bound`, 3 grandes | `bnb_<instancia>.csv` | 5 × 30 min = 2,5 h por instância | **sim** | qualquer máquina, mas as 5 estratégias de uma instância juntas |
+| `experimentos.branch_and_bound --consolidar` | `otimos_bnb.csv` | segundos | não | quem juntar os resultados |
+
+**Máquina de referência:** a mais rápida do grupo, de preferência um desktop.
+Ela roda tudo o que é medido em tempo; o relatório informa o processador, a
+RAM e a versão do Python dela (e das outras, para o B&B grande).
+
+### 6.3 Passo a passo
+
+**Passo 0: preparação (todas as máquinas).**
+
+```bash
+git pull                      # todos no mesmo commit
+make install                  # mesmas versões das bibliotecas
+make check                    # tudo passando antes de medir
+```
+
+Notebook na tomada, em modo desempenho, sem programas pesados abertos (o
+navegador conta). Não usar a máquina para outra coisa enquanto mede.
+
+**Passo 1: features (qualquer máquina).**
+
+```bash
+python -m experimentos.features --mds
+```
+
+**Passo 2: aproximados (máquina de referência, um script de cada vez).**
+
+```bash
+python -m experimentos.aproximados_tsplib
+python -m experimentos.aproximados_aleatorios
+```
+
+**Passo 3: B&B nas 9 instâncias pequenas (máquina de referência, sequencial).**
+Os tempos destas execuções entram no E1 (regressão do B&B) e no trade-off do
+E2, por isso `--processos 1` e nada mais rodando.
+
+```bash
+python -m experimentos.branch_and_bound --processos 1 \
+    --instancias burma14 ulysses16 gr17 gr21 ulysses22 gr24 fri26 bayg29 bays29 \
+    --saida resultados/bnb_pequenas.csv
+```
+
+Opcionais, também aqui: `--estrategias sem_warm_start` (B&B a frio, útil
+porque em dantzig42 o trivial é quase ótimo) e instâncias que o B&B resolve
+em menos de 1 min fora do conjunto (dantzig42, swiss42, eil51), para ter mais
+pontos na regressão do B&B, numa saída separada (`bnb_extra.csv`).
+
+**Passo 4: B&B nas 3 instâncias grandes (pode ser em paralelo).** O tempo
+aqui é sempre ~1800 s (NA); o que se compara são os nós expandidos e o melhor
+tour achado, que dependem da velocidade da máquina. Por isso **as 5
+estratégias de uma mesma instância rodam na mesma máquina e nas mesmas
+condições**. Duas opções, ambas com ~2,5 h de relógio:
+
+- **A (recomendada): uma instância por pessoa**, em sequência:
+  ```bash
+  python -m experimentos.branch_and_bound --processos 1 \
+      --instancias st70 --saida resultados/bnb_st70.csv
+  ```
+- **B: uma máquina só**, com as 3 instâncias em paralelo (no máximo um
+  processo por núcleo físico, deixando um livre):
+  ```bash
+  python -m experimentos.branch_and_bound --processos 3 \
+      --instancias att48 berlin52 st70 --saida resultados/bnb_grandes.csv
+  ```
+  Com 3 processos sempre ativos, todas as execuções disputam a máquina por
+  igual; declarar no relatório.
+
+Nunca rodar o passo 4 **na máquina de referência ao mesmo tempo** que os
+passos 2 e 3. Se cair, é só rodar o mesmo comando: o script retoma.
+
+**Passo 5: juntar os resultados.** Cada pessoa commita só o próprio
+`resultados/bnb_*.csv` (arquivos diferentes, sem conflito no git). Depois:
+
+```bash
+python -m experimentos.branch_and_bound --consolidar
+```
+
+**Passo 6: análises (ainda a implementar).**
+- Preencher `gap_bnb` dos aproximados e das heurísticas com `otimos_bnb.csv`.
+- E1 do B&B: regressão de `tempo_bnb_s` contra aⁿ, n²·2ⁿ e n! nas execuções OK.
+- E2: tabela instância × estratégia, correlação gap inicial × nós, trade-off
+  `tempo_total_s` contra o trivial, ponto de colapso.
+- E3: modelo do gap contra as features com leave-one-out.
+
+### 6.4 Divisão sugerida e cronograma
+
+| Quem | 21/11 | 22/11 | 23/11 |
+|---|---|---|---|
+| Pessoa 1 (máquina de referência) | passos 0–3, depois passo 4 com att48 | E1 e E2 | revisão |
+| Pessoa 2 | passo 4 com berlin52 | E3 | conclusões |
+| Pessoa 3 | passo 4 com st70; passo 1 | seções 1 e 2 do relatório | anexo de prompts |
+
+Entrega: 24/11 às 23h59. O dia 24 fica de folga para imprevistos.
+
+### 6.5 Pendências antes de rodar
+
+- **As heurísticas não estão em `execucoes`/`subrotinas`.** O script do B&B
+  grava só o custo e o tempo delas; falta medir memória e etapas, por exemplo
+  acrescentando-as ao `aproximados_tsplib` (o fecho convexo precisa de
+  `instancia.coordenadas`).
+- **Coluna `maquina`** do `bnb.csv`: hoje grava o nome do computador; trocar
+  pelo modelo do processador e o nº de núcleos é mais útil para o relatório.
+- O `aproximados_tsplib` roda as 18 instâncias, não só as 12 selecionadas.
+  Isso dá mais pontos ao E1 e ao E3, mas o relatório deve dizer quais entram
+  em cada análise.
