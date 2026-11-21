@@ -106,9 +106,19 @@ São três: **trivial** (1 → 2 → … → n → 1), **vizinho mais próximo**
 | Custo do tour (= limite superior inicial do B&B) e gap | E2 |
 | Tempo | E2 (trade-off), E1 |
 
-A inserção por fecho convexo **só roda em instâncias com coordenadas**. Nas
-8 sem pontos (gr17, gr21, gr24, gr48, fri26, hk48, brazil58, swiss42) ela fica
-NA. Isso deve constar no relatório.
+Implementação: `tsp/heuristicas.py` (`trivial`, `vizinho_mais_proximo`,
+`insercao_fecho_convexo`), com tour começando em 0.
+
+- **Fecho convexo nas instâncias sem coordenadas** (gr17, gr21, gr24, gr48,
+  fri26, hk48, brazil58, swiss42): os pontos são reconstruídos da matriz por
+  **MDS clássico** (qualidade ≥ 0,85). As coordenadas só definem o ciclo
+  inicial; a inserção usa os custos reais. O tempo do MDS entra na etapa `mds`.
+  Isso deve constar no relatório.
+- **Atenção no E2:** em dantzig42 a ordem do arquivo já está a 0,7% do ótimo,
+  então o "trivial" não é um warm-start ruim nessa instância.
+- Gap contra o limite de Held-Karp (todas as instâncias): inserção 0–15%
+  (melhor que o Christofides em quase todas), vizinho mais próximo 5–51%,
+  trivial 1–415%.
 
 ### 2.3 Twice-around-the-tree (`tsp/twice_around_the_tree.py`)
 
@@ -228,9 +238,10 @@ fonte LaTeX (padrão SBC), via GitHub.
 ## 6. Ordem de execução
 
 1. **Feito:** leitor de instâncias, AGM, Twice-around-the-tree, Christofides,
-   mecanismo de medição, Branch-and-Bound.
-2. **Próximo:** as três heurísticas de warm-start (trivial, vizinho mais
-   próximo, fecho convexo). **Disparar as execuções do B&B no mesmo dia.**
+   mecanismo de medição, Branch-and-Bound, features, heurísticas de
+   warm-start, scripts dos aproximados.
+2. **Próximo:** script que roda o B&B (instância × estratégia). **Disparar as
+   execuções do B&B no mesmo dia.**
 3. **Enquanto o B&B roda:** script que gera os CSVs, E1 dos aproximados,
    features, seções 1 e 2 do relatório.
 4. **Com os resultados do B&B:** gaps, E2, E3 e conclusões.
