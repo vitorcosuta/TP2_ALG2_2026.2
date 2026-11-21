@@ -1,18 +1,28 @@
-"""Complexidade empírica de Christofides e Twice-around-the-tree."""
+"""Complexidade empírica de Christofides e Twice-around-the-tree.
+
+Uso (a partir da raiz do repositório)::
+
+    python -m experimentos.aproximados_aleatorios
+"""
+
 from __future__ import annotations
+
 import csv
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+
 import numpy as np
 import pandas as pd
 from scipy.optimize import curve_fit
+
 from tsp.agm import agm_prim
 from tsp.christofides import christofides, vertices_grau_impar
-from tsp.medicao import medir
+from tsp.medicao import Medicao, medir
 from tsp.twice_around_the_tree import twice_around_the_tree
 
-PASTA_SAIDA = Path("resultados")
+RAIZ = Path(__file__).resolve().parent.parent
+PASTA_SAIDA = RAIZ / "resultados"
 TAMANHOS = [10, 20, 30, 50, 75, 100, 150, 200, 250, 300, 350, 400, 450, 500, 1000]
 
 ALGORITMOS = {
@@ -29,6 +39,21 @@ MODELOS: dict[str, Callable[[np.ndarray, float, float], np.ndarray]] = {
 }
 
 
+def _medir_algoritmo(
+    algoritmo: Callable[..., Any],
+    custos: np.ndarray,
+    repeticoes: int,
+    desativar_gc: bool,
+) -> Medicao:
+    """Mede ``algoritmo(custos)``; a função isola ``custos`` do laço que chama."""
+    return medir(
+        lambda m: algoritmo(custos, medidor=m),
+        repeticoes=repeticoes,
+        medir_memoria=True,
+        desativar_gc=desativar_gc,
+    )
+
+
 def _instancia_aleatoria(n: int, seed: int) -> np.ndarray:
     """Matriz de custos métrica para n pontos uniformes em [0, 1000]²."""
     rng = np.random.default_rng(seed)
@@ -40,7 +65,7 @@ def _instancia_aleatoria(n: int, seed: int) -> np.ndarray:
 
 
 def _salvar_csv(caminho: Path, linhas: list[dict[str, Any]]) -> None:
-    
+
     caminho.parent.mkdir(parents=True, exist_ok=True)
     with caminho.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(linhas[0].keys()))
@@ -53,15 +78,23 @@ def coletar_dados_aleatorios() -> Path:
     subrotinas: list[dict[str, Any]] = []
 
     for i, n in enumerate(TAMANHOS):
-        custos = _instancia_aleatoria(n, seed = i)
+        custos = _instancia_aleatoria(n, seed=i)
         pai = agm_prim(custos)
         k_impares = len(vertices_grau_impar(pai))
         reps = 15
 
         for nome_alg, func in ALGORITMOS.items():
-            med = medir(lambda m, f=func: f(custos, medidor=m),repeticoes=reps,medir_memoria=True,desativar_gc=False,)
+            med = _medir_algoritmo(func, custos, reps, desativar_gc=False)
             for linha in med.linhas():
-                subrotinas.append( {"algoritmo": nome_alg,"instancia": f"rand_{n}","n": n,"k_impares": k_impares,**linha,} )
+                subrotinas.append(
+                    {
+                        "algoritmo": nome_alg,
+                        "instancia": f"rand_{n}",
+                        "n": n,
+                        "k_impares": k_impares,
+                        **linha,
+                    }
+                )
         print(f"Coletado: N={n:3d} | k_impares={k_impares:3d} | reps={reps}")
 
     caminho_csv = PASTA_SAIDA / "subrotinas_aleatorias_e1.csv"
@@ -81,7 +114,15 @@ def _ajustar_modelos(x: np.ndarray, y: np.ndarray) -> list[dict[str, Any]]:
         ss_res = float(np.sum(residuos**2))
         r2 = 1.0 - (ss_res / ss_tot) if ss_tot > 0 else 1.0
         rmse = float(np.sqrt(np.mean(residuos**2)))
-        resultados.append({"modelo": nome_modelo,"a": float(popt[0]),"b": float(popt[1]),"r2": round(r2, 6),"rmse": rmse,})
+        resultados.append(
+            {
+                "modelo": nome_modelo,
+                "a": float(popt[0]),
+                "b": float(popt[1]),
+                "r2": round(r2, 6),
+                "rmse": rmse,
+            }
+        )
     return resultados
 
 
@@ -99,7 +140,15 @@ def ajustar_e_salvar_regressoes(caminho_csv: Path) -> pd.DataFrame:
         for metrica in ("tempo_mediana_s", "pico_memoria_bytes"):
             y = grupo_ord[metrica].to_numpy(dtype=float)
             for res in _ajustar_modelos(x, y):
-                linhas_reg.append({"algoritmo": alg,"etapa": etapa,"variavel_x": variavel_x,"metrica": metrica,**res,})
+                linhas_reg.append(
+                    {
+                        "algoritmo": alg,
+                        "etapa": etapa,
+                        "variavel_x": variavel_x,
+                        "metrica": metrica,
+                        **res,
+                    }
+                )
 
     df_reg = pd.DataFrame(linhas_reg)
     saida_reg = PASTA_SAIDA / "regressao_e1_aproximados.csv"
@@ -109,7 +158,11 @@ def ajustar_e_salvar_regressoes(caminho_csv: Path) -> pd.DataFrame:
     print("\n=== Melhor ajuste de TEMPO por etapa (maior R²) ===")
     tempo_df = df_reg[df_reg["metrica"] == "tempo_mediana_s"]
     melhores = tempo_df.loc[tempo_df.groupby(["algoritmo", "etapa"])["r2"].idxmax()]
-    print(melhores[["algoritmo", "etapa", "variavel_x", "modelo", "r2", "rmse"]].sort_values(["algoritmo", "etapa"]).to_string(index=False))
+    print(
+        melhores[["algoritmo", "etapa", "variavel_x", "modelo", "r2", "rmse"]]
+        .sort_values(["algoritmo", "etapa"])
+        .to_string(index=False)
+    )
     return df_reg
 
 
@@ -125,21 +178,36 @@ def gerar_graficos(caminho_csv: Path, df_reg: pd.DataFrame) -> None:
     pasta_graficos.mkdir(parents=True, exist_ok=True)
     df = pd.read_csv(caminho_csv)
 
-    alvos = [("twice_around_the_tree", "total", "n"),("twice_around_the_tree", "total/agm", "n"),("christofides", "total", "n"),("christofides", "total/emparelhamento", "k_impares"),]
+    alvos = [
+        ("twice_around_the_tree", "total", "n"),
+        ("twice_around_the_tree", "total/agm", "n"),
+        ("christofides", "total", "n"),
+        ("christofides", "total/emparelhamento", "k_impares"),
+    ]
 
     for alg, etapa, var_x in alvos:
         sub = df[(df["algoritmo"] == alg) & (df["etapa"] == etapa)].sort_values(var_x)
         x = sub[var_x].to_numpy(dtype=float)
         y = sub["tempo_mediana_s"].to_numpy(dtype=float)
 
-        reg_sub = df_reg[(df_reg["algoritmo"] == alg)& (df_reg["etapa"] == etapa)& (df_reg["metrica"] == "tempo_mediana_s")]
+        reg_sub = df_reg[
+            (df_reg["algoritmo"] == alg)
+            & (df_reg["etapa"] == etapa)
+            & (df_reg["metrica"] == "tempo_mediana_s")
+        ]
         melhor = reg_sub.loc[reg_sub["r2"].idxmax()]
         x_suave = np.linspace(x.min(), x.max(), 200)
         y_suave = MODELOS[melhor["modelo"]](x_suave, melhor["a"], melhor["b"])
 
         plt.figure(figsize=(7, 4.5))
         plt.scatter(x, y, label="Medido (mediana)", color="#1f77b4", zorder=3)
-        plt.plot(x_suave,y_suave,label=f"Ajuste {melhor['modelo']} ($R^2={melhor['r2']:.4f}$)",color="#d62728",linewidth=2,)
+        plt.plot(
+            x_suave,
+            y_suave,
+            label=f"Ajuste {melhor['modelo']} ($R^2={melhor['r2']:.4f}$)",
+            color="#d62728",
+            linewidth=2,
+        )
         plt.title(f"{alg} — {etapa}")
         plt.xlabel(var_x)
         plt.ylabel("Tempo (s)")

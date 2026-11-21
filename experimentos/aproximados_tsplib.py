@@ -1,25 +1,51 @@
-"""Script de testes de Christofides e Twice-around-the-tree nas instâncias da TSPLIB."""
+"""Script de testes de Christofides e Twice-around-the-tree nas instâncias da TSPLIB.
+
+Uso (a partir da raiz do repositório)::
+
+    python -m experimentos.aproximados_tsplib
+"""
 
 from __future__ import annotations
+
 import csv
+from collections.abc import Callable
 from pathlib import Path
 from statistics import median
 from typing import Any
+
 import numpy as np
+
 from tsp.agm import agm_prim, custo_agm
 from tsp.christofides import christofides, vertices_grau_impar
 from tsp.instancia import carregar_instancia
-from tsp.medicao import medir
+from tsp.medicao import Medicao, medir
 from tsp.tour import custo_tour
 from tsp.twice_around_the_tree import twice_around_the_tree
 
 REPETICOES = 15
-PASTA_SAIDA = Path("resultados")
+RAIZ = Path(__file__).resolve().parent.parent
+PASTA_SAIDA = RAIZ / "resultados"
 
 ALGORITMOS = {
     "twice_around_the_tree": twice_around_the_tree,
     "christofides": christofides,
 }
+
+
+def _medir_algoritmo(
+    algoritmo: Callable[..., Any],
+    custos: np.ndarray,
+    repeticoes: int,
+    desativar_gc: bool,
+) -> Medicao:
+    """Mede ``algoritmo(custos)``; a função isola ``custos`` do laço que chama."""
+    return medir(
+        lambda m: algoritmo(custos, medidor=m),
+        repeticoes=repeticoes,
+        medir_memoria=True,
+        desativar_gc=desativar_gc,
+    )
+
 
 def _custo_opt_tsplib(arquivo_tsp: Path, custos: np.ndarray) -> int | str:
     """Calcula o custo do .opt.tour na matriz métrica atual (gap preliminar)."""
@@ -62,7 +88,7 @@ def rodar_tsplib(pasta_instancias: Path, desativar_gc: bool = False) -> None:
         c_opt = _custo_opt_tsplib(arquivo, custos)
 
         for nome_alg, func in ALGORITMOS.items():
-            med = medir(lambda m, f=func: f(custos, medidor=m),repeticoes=REPETICOES,medir_memoria=True,desativar_gc=desativar_gc,)
+            med = _medir_algoritmo(func, custos, REPETICOES, desativar_gc)
             custo_sol, _ = med.resultado
             gap_tsplib = (
                 round((custo_sol - c_opt) / c_opt, 6)
@@ -91,7 +117,16 @@ def rodar_tsplib(pasta_instancias: Path, desativar_gc: bool = False) -> None:
             )
 
             for linha in med.linhas():
-                subrotinas.append({"algoritmo": nome_alg,"instancia": inst.nome,"n": n,"k_impares": k_impares,"gc_desativado": desativar_gc,**linha,})
+                subrotinas.append(
+                    {
+                        "algoritmo": nome_alg,
+                        "instancia": inst.nome,
+                        "n": n,
+                        "k_impares": k_impares,
+                        "gc_desativado": desativar_gc,
+                        **linha,
+                    }
+                )
 
         print(f"Concluído: {inst.nome} (N={n}, k={k_impares}, gc_off={desativar_gc})")
 
@@ -101,7 +136,7 @@ def rodar_tsplib(pasta_instancias: Path, desativar_gc: bool = False) -> None:
 
 
 if __name__ == "__main__":
-    pasta = Path("TSP_Instances")
+    pasta = RAIZ / "TSP_Instances"
     rodar_tsplib(pasta, desativar_gc=False)
     rodar_tsplib(pasta, desativar_gc=True)
     print(f"Arquivos salvos em: {PASTA_SAIDA.resolve()}")

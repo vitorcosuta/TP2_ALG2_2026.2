@@ -61,7 +61,9 @@ def test_clark_evans_distingue_padroes():
     rng = np.random.default_rng(1)
     grade = _grade(10)
     aleatorio = rng.random((300, 2))
-    clusters = np.vstack([rng.normal(c, 0.02, (50, 2)) for c in rng.random((4, 2)) * 10])
+    clusters = np.vstack(
+        [rng.normal(c, 0.02, (50, 2)) for c in rng.random((4, 2)) * 10]
+    )
     assert indice_clark_evans(grade) > 1.5  # regular
     assert 0.8 < indice_clark_evans(aleatorio) < 1.2  # ~Poisson
     assert indice_clark_evans(clusters) < 0.5  # agrupado
@@ -84,9 +86,10 @@ def test_features_agm_estrela_e_caminho():
 
 
 def test_cv_vizinho_mais_proximo():
-    assert features_distancias(_distancias(_grade(5) * 10))[
-        "cv_vizinho_mais_proximo"
-    ] == 0.0
+    assert (
+        features_distancias(_distancias(_grade(5) * 10))["cv_vizinho_mais_proximo"]
+        == 0.0
+    )
     # Dois pontos colados e um longe: vizinhos a 1, 1 e ~100.
     pontos = np.array([[0, 0], [1, 0], [100, 0]], dtype=float)
     assert features_distancias(_distancias(pontos))["cv_vizinho_mais_proximo"] > 1
@@ -110,7 +113,12 @@ def test_instancias(caminho: Path, usar_mds: bool):
     instancia = carregar_instancia(caminho)
     linha = extrair_features(instancia, usar_mds=usar_mds)
     assert linha["instancia"] == caminho.stem and linha["n"] == instancia.dimensao
-    geometricas = ["razao_aspecto", "fracao_fecho_convexo", "entropia_espacial", "clark_evans"]
+    geometricas = [
+        "razao_aspecto",
+        "fracao_fecho_convexo",
+        "entropia_espacial",
+        "clark_evans",
+    ]
     tem_pontos = instancia.coordenadas is not None or usar_mds
     for nome in geometricas:
         assert math.isfinite(linha[nome]) == tem_pontos, nome

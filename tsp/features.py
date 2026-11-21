@@ -140,7 +140,9 @@ def fracao_fecho_convexo(pontos: Coordenadas) -> float:
     return float(len(fecho.vertices) / len(pontos)) if fecho else NAN
 
 
-def entropia_espacial(pontos: Coordenadas, celulas_por_lado: int | None = None) -> float:
+def entropia_espacial(
+    pontos: Coordenadas, celulas_por_lado: int | None = None
+) -> float:
     """Entropia de Shannon da ocupação de uma grade, normalizada para [0, 1].
 
     O bounding box é dividido numa grade k × k; conta-se a fração de pontos
