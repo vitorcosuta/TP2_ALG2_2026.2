@@ -169,7 +169,7 @@ Cada script lê CSVs de `resultados/` e grava figuras e tabelas em
 | `gaps.py` | `execucoes.csv`, `otimos_bnb.csv` | tabela de gaps | a implementar |
 | `e1.py` (B&B, GC, profiling) | `bnb_*.csv`, `subrotinas*.csv` | regressão do B&B, com × sem GC, etapa dominante | a implementar |
 | `e2.py` | `bnb_*.csv`, `otimos_bnb.csv` | tabela instância × estratégia, correlações, trade-off | a implementar |
-| `e3.py` | `features.csv`, gaps | modelo do gap × features (leave-one-out) | a implementar |
+| `e3.py` | `features.csv`, gaps | modelo do gap × features (leave-one-out) | pronto |
 
 Convenções da análise:
 
