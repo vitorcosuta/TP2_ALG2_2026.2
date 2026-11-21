@@ -1,10 +1,18 @@
 # Comandos de desenvolvimento. Uso: make <alvo>   (make help lista os alvos)
 
-VENV   := .venv
-BIN    := $(VENV)/bin
-PYTHON := $(BIN)/python
-SRC    ?= .
-EXCL   := .venv,build,dist
+VENV := .venv
+SRC  ?= .
+EXCL := .venv,build,dist
+
+ifeq ($(OS),Windows_NT)
+	BIN        := $(VENV)/Scripts
+	PYTHON     := $(BIN)/python.exe
+	SYS_PYTHON := python
+else
+	BIN        := $(VENV)/bin
+	PYTHON     := $(BIN)/python
+	SYS_PYTHON := python3
+endif
 
 .PHONY: help venv install lint format format-check typecheck complexity test check clean
 
@@ -23,7 +31,7 @@ help:
 	@echo "SRC=<caminho> restringe a análise (padrão: .)"
 
 $(PYTHON):
-	python3 -m venv $(VENV)
+	$(SYS_PYTHON) -m venv $(VENV)
 
 venv: $(PYTHON)
 
@@ -41,7 +49,7 @@ format-check:
 	$(BIN)/ruff format --check $(SRC)
 
 typecheck:
-	$(BIN)/mypy --exclude '^(\.venv|build|dist)/' $(SRC)
+	$(BIN)/mypy --exclude "^(\.venv|build|dist)/" $(SRC)
 
 complexity:
 	$(BIN)/radon cc -s -a -e "$(EXCL)" $(SRC)
@@ -53,5 +61,9 @@ test:
 check: lint format-check typecheck complexity test
 
 clean:
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue .ruff_cache, .mypy_cache, .pytest_cache; Get-ChildItem -Recurse -Directory -Filter __pycache__ | Where-Object { $$_.FullName -notmatch '\\$(VENV)\\' } | Remove-Item -Recurse -Force"
+else
 	rm -rf .ruff_cache .mypy_cache .pytest_cache
 	find . -path ./$(VENV) -prune -o -type d -name __pycache__ -exec rm -rf {} +
+endif
