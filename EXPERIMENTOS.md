@@ -17,9 +17,15 @@ uma seção do relatório**. Ele segue a especificação do TP2 (seções
 
 - De **12 a 16** instâncias, com **80% delas com N ≤ 40**. O restante fica
   entre **45 e 75** (faixa de estresse, em que o B&B deve estourar o tempo).
-- Em `TSP_Instances/`, as que têm N ≤ 40 são: burma14, ulysses16, gr17, gr21,
-  ulysses22, gr24, fri26, bayg29 e bays29. **O conjunto final ainda precisa ser
-  decidido.**
+- **Conjunto final** (`experimentos/instancias.py`), com 12 instâncias:
+  - N ≤ 40 (9): burma14, ulysses16, gr17, gr21, ulysses22, gr24, fri26,
+    bayg29, bays29;
+  - faixa de estresse (3): att48, berlin52, st70.
+- **Desvio da especificação: 75% com N ≤ 40, e não 80%.** As 9 instâncias
+  acima são todas as que temos com N ≤ 40 entre as instâncias da TSPLIB com
+  N em [10, 75]. Com o mínimo de 12 instâncias, 80% exigiria 10 pequenas; e
+  ficar com 11 (9 pequenas = 82%) violaria o mínimo de 12. **O relatório deve
+  justificar esse desvio pela falta de instâncias pequenas disponíveis.**
 - Todas são lidas com `tsp.instancia.carregar_instancia`, que aplica o fecho
   métrico (Floyd–Warshall): a desigualdade triangular vale em todas.
 
@@ -95,6 +101,56 @@ Implementação: `tsp/branch_and_bound.py`. Tudo abaixo está em
   que custa ~0,1 µs por chamada.
 - Teste com 60 s e warm-start do Christofides: todas as instâncias com
   N ≤ 42 e eil51 foram resolvidas; att48, berlin52 e st70 estouraram.
+
+#### Script de execução (`experimentos/branch_and_bound.py`)
+
+```bash
+python -m experimentos.branch_and_bound                  # 12 instâncias × 5 estratégias
+python -m experimentos.branch_and_bound --processos 4    # 4 combinações em paralelo
+python -m experimentos.branch_and_bound --instancias att48 st70 \
+    --saida resultados/bnb_maquina2.csv                   # divisão entre máquinas
+python -m experimentos.branch_and_bound --consolidar     # só refaz otimos_bnb.csv
+```
+
+- **Retomável:** cada linha é gravada assim que a execução termina; ao
+  reiniciar, o que já está no CSV é pulado (`--refazer` força tudo de novo).
+- Ordem: instâncias da menor para a maior. Estimativa: ~8 h de máquina com
+  1 processo (as 3 grandes × 5 estratégias × 30 min); bem menos em paralelo.
+- `--estrategias sem_warm_start` roda o B&B sem limite superior inicial (fora
+  do padrão; útil no E2 porque em dantzig42 o "trivial" é quase ótimo).
+
+**`resultados/bnb.csv`**: uma linha por (instância × estratégia).
+
+| Coluna | Significado |
+|---|---|
+| `instancia`, `n`, `estrategia` | identificação da combinação |
+| `limite_inferior`, `limite_tempo_s` | parâmetros do B&B (`held_karp`, 1800) |
+| `origem_pontos` | só no fecho convexo: seção de onde vieram os pontos, ou `MDS` |
+| `custo_inicial` | custo do tour da heurística = limite superior inicial (vazio sem warm-start) |
+| `tempo_heuristica_s` | mediana de 10 execuções da heurística |
+| `status` | `OK` (ótimo provado) ou `NA` (estourou o tempo) |
+| `custo`, `tour` | melhor tour achado (o ótimo se `OK`); tour como `0-5-3-…` |
+| `limite_raiz` | limite inferior de Held-Karp na raiz (cota inferior do ótimo) |
+| `nos_expandidos`, `nos_podados` | nós visitados e filhos descartados pelo limite |
+| `profundidade_maxima`, `melhorias` | maior profundidade e quantas vezes o incumbente melhorou |
+| `chamadas_limite_inferior` | nº de cálculos de limite inferior |
+| `tempo_bnb_s` | penalidades + busca |
+| `tempo_penalidades_s`, `tempo_busca_s` | as duas fases do B&B |
+| `tempo_limite_inferior_s` | parte da busca gasta calculando limites (profiling) |
+| `tempo_total_s` | heurística + B&B (trade-off do E2) |
+| `pico_memoria_bytes`, `pico_memoria_busca_bytes` | execução separada com `tracemalloc`, só se `OK` em ≤ 120 s; vazio caso contrário |
+| `maquina`, `python`, `data` | auditoria: onde e quando rodou |
+
+**`resultados/otimos_bnb.csv`**: uma linha por instância, juntando todos os
+`bnb*.csv` da pasta. É o ótimo de referência para os gaps de todos os
+algoritmos.
+
+| Coluna | Significado |
+|---|---|
+| `otimo_provado` | alguma estratégia terminou com `OK` |
+| `melhor_custo` | o ótimo (se provado) ou o melhor tour achado (cota superior) |
+| `maior_limite_raiz` | melhor cota inferior; se não provado, ótimo ∈ [este, `melhor_custo`] |
+| `execucoes`, `execucoes_ok` | quantas combinações rodaram e quantas terminaram |
 
 ### 2.2 Heurísticas de warm-start
 
@@ -240,8 +296,8 @@ fonte LaTeX (padrão SBC), via GitHub.
 1. **Feito:** leitor de instâncias, AGM, Twice-around-the-tree, Christofides,
    mecanismo de medição, Branch-and-Bound, features, heurísticas de
    warm-start, scripts dos aproximados.
-2. **Próximo:** script que roda o B&B (instância × estratégia). **Disparar as
-   execuções do B&B no mesmo dia.**
+   Script do B&B (`experimentos/branch_and_bound.py`).
+2. **Próximo:** **disparar as execuções do B&B**, divididas entre as máquinas.
 3. **Enquanto o B&B roda:** script que gera os CSVs, E1 dos aproximados,
    features, seções 1 e 2 do relatório.
 4. **Com os resultados do B&B:** gaps, E2, E3 e conclusões.

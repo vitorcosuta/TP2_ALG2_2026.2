@@ -197,13 +197,18 @@ def medir(
 
     picos: dict[str, int] = {}
     if medir_memoria:
-        picos = _medir_memoria(funcao, desativar_gc)
+        picos = picos_de_memoria(funcao, desativar_gc)
     return Medicao(resultado, tempos, picos, chamadas, coletas)
 
 
-def _medir_memoria(
-    funcao: Callable[[Medidor], Any], desativar_gc: bool
+def picos_de_memoria(
+    funcao: Callable[[Medidor], Any], desativar_gc: bool = False
 ) -> dict[str, int]:
+    """Só a execução de memória de ``medir``: pico (bytes) de cada etapa.
+
+    Útil quando a execução de tempo já foi feita e é cara demais para repetir
+    (ex.: o B&B).
+    """
     ja_rastreava = tracemalloc.is_tracing()
     if not ja_rastreava:
         tracemalloc.start()
