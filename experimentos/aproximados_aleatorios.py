@@ -33,6 +33,7 @@ from tsp.medicao import Medicao, medir
 RAIZ = Path(__file__).resolve().parent.parent
 PASTA_SAIDA = RAIZ / "resultados"
 NOME_SAIDA = "subrotinas_aleatorias_e1.csv"
+NOME_SAIDA_BRUTOS = "tempos_brutos_e1.csv"
 TAMANHOS = [10, 20, 30, 50, 75, 100, 150, 200, 250, 300, 350, 400, 450, 500, 1000]
 REPETICOES = 15
 SEMENTE = 0
@@ -63,6 +64,7 @@ def coletar_dados_aleatorios(
     repeticoes: int = REPETICOES,
 ) -> Path:
     """Mede os 5 algoritmos em cada tamanho e salva o CSV de sub-rotinas."""
+    brutos: list[dict[str,Any]] = []
     subrotinas: list[dict[str, Any]] = []
     for n in tamanhos:
         inst = instancia_aleatoria(n, SEMENTE)
@@ -81,10 +83,25 @@ def coletar_dados_aleatorios(
                         **info_ambiente(),
                     }
                 )
+            for etapa, lista_tempos in med.tempos_s.items():
+                for rep_idx, tempo_s in enumerate(lista_tempos, start=1):
+                    brutos.append(
+                        {
+                            "algoritmo": nome_alg,
+                            "tipo": TIPO[nome_alg],
+                            "instancia": inst.nome,
+                            "n": n,
+                            "k_impares": k_impares,
+                            "etapa": etapa,
+                            "repeticao": rep_idx,
+                            "tempo_s": tempo_s,
+                        }
+                    )
         print(f"Coletado: N={n:4d} | k_impares={k_impares:3d} | reps={repeticoes}")
 
     caminho_csv = pasta_saida / NOME_SAIDA
     _salvar_csv(caminho_csv, subrotinas)
+    _salvar_csv(pasta_saida / NOME_SAIDA_BRUTOS, brutos)
     return caminho_csv
 
 
