@@ -1,4 +1,12 @@
-"""Script de testes de Christofides e Twice-around-the-tree nas instâncias da TSPLIB.
+"""Mede os 5 algoritmos construtivos em todas as instâncias da TSPLIB.
+
+São as 3 heurísticas de warm-start (trivial, vizinho mais próximo, inserção
+pelo fecho convexo) e os 2 aproximados (Twice-around-the-tree, Christofides).
+Gera as tabelas ``execucoes`` (uma linha por algoritmo × instância) e
+``subrotinas`` (uma linha por algoritmo × instância × etapa), com e sem GC:
+
+- ``resultados/execucoes.csv`` e ``resultados/execucoes_sem_gc.csv``
+- ``resultados/subrotinas.csv`` e ``resultados/subrotinas_sem_gc.csv``
 
 Uso (a partir da raiz do repositório)::
 
@@ -8,39 +16,33 @@ Uso (a partir da raiz do repositório)::
 from __future__ import annotations
 
 import csv
-from collections.abc import Callable
 from pathlib import Path
 from statistics import median
 from typing import Any
 
 import numpy as np
 
+from experimentos.algoritmos import ALGORITMOS, TIPO, Algoritmo, origem_pontos
 from tsp.agm import agm_prim, custo_agm
-from tsp.christofides import christofides, vertices_grau_impar
-from tsp.instancia import carregar_instancia
+from tsp.christofides import vertices_grau_impar
+from tsp.instancia import Instancia, carregar_instancia
 from tsp.medicao import Medicao, medir
 from tsp.tour import custo_tour
-from tsp.twice_around_the_tree import twice_around_the_tree
 
 REPETICOES = 15
 RAIZ = Path(__file__).resolve().parent.parent
 PASTA_SAIDA = RAIZ / "resultados"
 
-ALGORITMOS = {
-    "twice_around_the_tree": twice_around_the_tree,
-    "christofides": christofides,
-}
-
 
 def _medir_algoritmo(
-    algoritmo: Callable[..., Any],
-    custos: np.ndarray,
+    algoritmo: Algoritmo,
+    instancia: Instancia,
     repeticoes: int,
     desativar_gc: bool,
 ) -> Medicao:
-    """Mede ``algoritmo(custos)``; a função isola ``custos`` do laço que chama."""
+    """Mede ``algoritmo(instancia)``; isola ``instancia`` do laço que chama."""
     return medir(
-        lambda m: algoritmo(custos, medidor=m),
+        lambda m: algoritmo(instancia, m),
         repeticoes=repeticoes,
         medir_memoria=True,
         desativar_gc=desativar_gc,
@@ -89,7 +91,7 @@ def rodar_tsplib(pasta_instancias: Path, desativar_gc: bool = False) -> None:
         c_opt = _custo_opt_tsplib(arquivo, custos)
 
         for nome_alg, func in ALGORITMOS.items():
-            med = _medir_algoritmo(func, custos, REPETICOES, desativar_gc)
+            med = _medir_algoritmo(func, inst, REPETICOES, desativar_gc)
             custo_sol, _ = med.resultado
             gap_tsplib = (
                 round((custo_sol - c_opt) / c_opt, 6)
@@ -100,9 +102,11 @@ def rodar_tsplib(pasta_instancias: Path, desativar_gc: bool = False) -> None:
             execucoes.append(
                 {
                     "algoritmo": nome_alg,
+                    "tipo": TIPO[nome_alg],
                     "instancia": nome_inst,
                     "n": n,
                     "k_impares": k_impares,
+                    "origem_pontos": origem_pontos(inst, nome_alg),
                     "custo": custo_sol,
                     "custo_agm": c_agm,
                     "razao_agm": round(custo_sol / c_agm, 6) if c_agm > 0 else 1.0,
@@ -121,6 +125,7 @@ def rodar_tsplib(pasta_instancias: Path, desativar_gc: bool = False) -> None:
                 subrotinas.append(
                     {
                         "algoritmo": nome_alg,
+                        "tipo": TIPO[nome_alg],
                         "instancia": nome_inst,
                         "n": n,
                         "k_impares": k_impares,
@@ -132,8 +137,8 @@ def rodar_tsplib(pasta_instancias: Path, desativar_gc: bool = False) -> None:
         print(f"Concluído: {nome_inst} (N={n}, k={k_impares}, gc_off={desativar_gc})")
 
     sufixo = "_sem_gc" if desativar_gc else ""
-    _salvar_csv(PASTA_SAIDA / f"execucoes_aproximados{sufixo}.csv", execucoes)
-    _salvar_csv(PASTA_SAIDA / f"subrotinas_aproximados{sufixo}.csv", subrotinas)
+    _salvar_csv(PASTA_SAIDA / f"execucoes{sufixo}.csv", execucoes)
+    _salvar_csv(PASTA_SAIDA / f"subrotinas{sufixo}.csv", subrotinas)
 
 
 if __name__ == "__main__":

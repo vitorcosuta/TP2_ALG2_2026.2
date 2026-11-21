@@ -41,7 +41,7 @@ import os
 import platform
 import subprocess
 import sys
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
 from functools import cache
@@ -49,14 +49,12 @@ from pathlib import Path
 from statistics import median
 from typing import Any
 
+from experimentos.algoritmos import ALGORITMOS, origem_pontos
 from experimentos.instancias import SELECIONADAS
 from tsp.branch_and_bound import BranchAndBound, LimiteInferior, ResultadoBnB
-from tsp.christofides import christofides
-from tsp.heuristicas import insercao_fecho_convexo, trivial, vizinho_mais_proximo
 from tsp.instancia import Instancia, carregar_instancia
-from tsp.medicao import Medidor, medir, picos_de_memoria
+from tsp.medicao import medir, picos_de_memoria
 from tsp.tour import Tour
-from tsp.twice_around_the_tree import twice_around_the_tree
 
 RAIZ = Path(__file__).resolve().parent.parent
 PASTA_INSTANCIAS = RAIZ / "TSP_Instances"
@@ -66,17 +64,7 @@ SAIDA_OTIMOS = PASTA_RESULTADOS / "otimos_bnb.csv"
 
 REPETICOES_HEURISTICA = 10
 
-Heuristica = Callable[[Instancia, Medidor], tuple[int, Tour]]
-
-ESTRATEGIAS: dict[str, Heuristica] = {
-    "trivial": lambda i, m: trivial(i.custos, medidor=m),
-    "vizinho_mais_proximo": lambda i, m: vizinho_mais_proximo(i.custos, medidor=m),
-    "insercao_fecho_convexo": lambda i, m: insercao_fecho_convexo(
-        i.custos, i.coordenadas, medidor=m
-    ),
-    "twice_around_the_tree": lambda i, m: twice_around_the_tree(i.custos, medidor=m),
-    "christofides": lambda i, m: christofides(i.custos, medidor=m),
-}
+ESTRATEGIAS = ALGORITMOS
 # Fora do padrão: B&B sem limite superior inicial (custo_inicial = inf).
 SEM_WARM_START = "sem_warm_start"
 
@@ -166,10 +154,7 @@ def _warm_start(inst: Instancia, estrategia: str) -> tuple[Tour | None, float, s
         medir_memoria=False,
     )
     _, tour = med.resultado
-    origem = ""
-    if estrategia == "insercao_fecho_convexo":
-        origem = inst.origem_coordenadas or "MDS"
-    return tour, median(med.tempos_s["total"]), origem
+    return tour, median(med.tempos_s["total"]), origem_pontos(inst, estrategia)
 
 
 def _linha(

@@ -43,8 +43,8 @@ São quatro tabelas em CSV:
 | Tabela | Uma linha por | Colunas principais |
 |---|---|---|
 | `instancias` | instância | N, tipo de peso, origem das coordenadas, features (seção 4) |
-| `execucoes` | algoritmo × instância | custo, gap, tempo total, pico de memória, status (OK/NA) |
-| `subrotinas` | algoritmo × instância × etapa | saída de `Medicao.linhas()` (tempo, memória, chamadas, coletas de GC) |
+| `execucoes` | algoritmo × instância | custo, gap, tempo total, pico de memória, status (OK/NA). Os 5 algoritmos construtivos (coluna `tipo`: `heuristica` ou `aproximativo`) |
+| `subrotinas` | algoritmo × instância × etapa | saída de `Medicao.linhas()` (tempo, memória, chamadas, coletas de GC), para os mesmos 5 algoritmos |
 | `bnb` | instância × estratégia de warm-start | limite superior inicial, nós expandidos, nós podados, profundidade máxima, tempo, status |
 
 ### Repetições
@@ -316,7 +316,7 @@ Durações medidas num Intel i5-1135G7 (4 núcleos físicos).
 | Script | Gera | Duração | Paralelizar? | Onde rodar |
 |---|---|---|---|---|
 | `experimentos.features` | `features.csv` | segundos | não precisa | qualquer máquina |
-| `experimentos.aproximados_tsplib` | `execucoes_aproximados*.csv`, `subrotinas_aproximados*.csv` (com e sem GC) | ~2 s | **não** (tempo é a medida) | máquina de referência |
+| `experimentos.aproximados_tsplib` (3 heurísticas + 2 aproximados) | `execucoes.csv`, `subrotinas.csv` e as versões `_sem_gc` | ~4 s | **não** (tempo é a medida) | máquina de referência |
 | `experimentos.aproximados_aleatorios` | `subrotinas_aleatorias_e1.csv`, `regressao_e1_aproximados.csv`, `graficos_e1/` | ~5 min (Christofides com N=1000 leva ~11 s por execução) | **não** | máquina de referência |
 | `experimentos.branch_and_bound`, 9 pequenas | `bnb_pequenas.csv` | ~2 min | **não** (`--processos 1`) | máquina de referência |
 | `experimentos.branch_and_bound`, 3 grandes | `bnb_<instancia>.csv` | 5 × 30 min = 2,5 h por instância | **sim** | qualquer máquina, mas as 5 estratégias de uma instância juntas |
@@ -416,10 +416,6 @@ Entrega: 24/11 às 23h59. O dia 24 fica de folga para imprevistos.
 
 ### 6.5 Pendências antes de rodar
 
-- **As heurísticas não estão em `execucoes`/`subrotinas`.** O script do B&B
-  grava só o custo e o tempo delas; falta medir memória e etapas, por exemplo
-  acrescentando-as ao `aproximados_tsplib` (o fecho convexo precisa de
-  `instancia.coordenadas`).
 - O `aproximados_tsplib` roda as 18 instâncias, não só as 12 selecionadas.
   Isso dá mais pontos ao E1 e ao E3, mas o relatório deve dizer quais entram
   em cada análise.
