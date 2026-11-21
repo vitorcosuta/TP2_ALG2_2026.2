@@ -3,6 +3,8 @@
 Este documento diz **o que medir em cada algoritmo** e **como cada medida vira
 uma seção do relatório**. Ele segue a especificação do TP2 (seções
 "Instrumentação, Modelagem e Avaliação", "Relatório" e "O que entregar?").
+A organização do código em camadas (coleta → dados → análise) está em
+[ESTRUTURA.md](ESTRUTURA.md).
 
 > **Prazo:** entrega em **24/11/2026 às 23h59**. Cada execução do B&B pode
 > levar até 30 min. Com ~14 instâncias × 5 warm-starts, o pior caso passa de
@@ -109,21 +111,30 @@ python -m experimentos.branch_and_bound                  # 12 instâncias × 5 e
 python -m experimentos.branch_and_bound --processos 4    # 4 combinações em paralelo
 python -m experimentos.branch_and_bound --instancias att48 st70 \
     --saida resultados/bnb_maquina2.csv                   # divisão entre máquinas
-python -m experimentos.branch_and_bound --consolidar     # só refaz otimos_bnb.csv
+python -m experimentos.branch_and_bound --consolidar     # gera otimos_bnb.csv (só sob demanda)
 ```
 
 - **Retomável:** cada linha é gravada assim que a execução termina; ao
-  reiniciar, o que já está no CSV é pulado (`--refazer` força tudo de novo).
+  reiniciar, o que já está no CSV é pulado. Uma execução é identificada por
+  instância, estratégia, limite inferior **e limite de tempo**. Para refazer,
+  use outra `--saida` ou apague o arquivo.
+- **Um arquivo, um limite de tempo:** se a `--saida` já tem execuções com
+  outro limite (ex.: um teste rápido com `--limite-tempo 5`), o script para
+  com erro em vez de misturar. Assim um teste nunca é confundido com a
+  execução oficial.
+- **`otimos_bnb.csv` só com `--consolidar`:** nenhuma execução gera esse
+  arquivo sozinha, para que nenhuma máquina produza uma versão parcial.
 - Ordem: instâncias da menor para a maior. Estimativa: ~8 h de máquina com
   1 processo (as 3 grandes × 5 estratégias × 30 min); bem menos em paralelo.
 - `--estrategias sem_warm_start` roda o B&B sem limite superior inicial (fora
-  do padrão; útil no E2 porque em dantzig42 o "trivial" é quase ótimo).
+  do padrão; ver o passo 3b da seção 6.3).
 
 **`resultados/bnb.csv`**: uma linha por (instância × estratégia).
 
 | Coluna | Significado |
 |---|---|
-| `instancia`, `n`, `estrategia` | identificação da combinação |
+| `conjunto` | `principal` (as 12 de `SELECIONADAS`), `extra` (TSPLIB fora delas, só para a regressão) ou `aleatorio` |
+| `instancia`, `semente`, `n`, `estrategia` | identificação da combinação (`semente` só nas aleatórias) |
 | `limite_inferior`, `limite_tempo_s` | parâmetros do B&B (`held_karp`, 1800) |
 | `origem_pontos` | só no fecho convexo: seção de onde vieram os pontos, ou `MDS` |
 | `custo_inicial` | custo do tour da heurística = limite superior inicial (vazio sem warm-start) |
@@ -142,9 +153,10 @@ python -m experimentos.branch_and_bound --consolidar     # só refaz otimos_bnb.
 | `processador`, `nucleos_fisicos`, `nucleos_logicos` | modelo do processador e nº de núcleos (lógicos incluem hyper-threading; físicos vazio se o sistema não informar) |
 | `python`, `data` | auditoria: versão do Python e quando rodou |
 
-**`resultados/otimos_bnb.csv`**: uma linha por instância, juntando todos os
-`bnb*.csv` da pasta. É o ótimo de referência para os gaps de todos os
-algoritmos.
+**`resultados/otimos_bnb.csv`**: uma linha por instância (principais e
+extras; as aleatórias ficam de fora), juntando todos os `bnb*.csv` da pasta.
+Gerado só com `--consolidar`, no passo 5. É o ótimo de referência para os
+gaps de todos os algoritmos.
 
 | Coluna | Significado |
 |---|---|
@@ -243,10 +255,15 @@ o pico de memória. Esse resultado vai para a seção 2 do relatório.
 
 - **Algoritmos:** Twice-around-the-tree e Christofides. Opcionalmente também
   vizinho mais próximo e fecho convexo.
+- **Instâncias: só as com ótimo provado pelo B&B** (`otimo_provado` em
+  `otimos_bnb.csv`). Espera-se 13: as 9 principais com N ≤ 40 e as 4 extras
+  (swiss42, dantzig42, hk48, eil51). Ficam de fora as instâncias em que o B&B
+  estourou o tempo (att48, berlin52, st70), cujo gap é só um intervalo, e as
+  que o B&B não roda (gr48, brazil58). Declarar no relatório.
 - **Variável resposta:** gap. Opcionalmente, nós expandidos do B&B.
 - **Modelo:** regressão múltipla ou árvore de decisão, com as features da
   seção 4.
-- **Atenção:** com ~14 instâncias e 5 ou mais features o modelo sobreajusta.
+- **Atenção:** com 13 instâncias e 5 ou mais features o modelo sobreajusta.
   Usar poucas features, validação **leave-one-out** e declarar a limitação.
   Para ampliar a amostra, gerar **instâncias adversariais** (pontos em
   clusters, em faixas estreitas, em círculo).
@@ -317,10 +334,13 @@ Durações medidas num Intel i5-1135G7 (4 núcleos físicos).
 |---|---|---|---|---|
 | `experimentos.features` | `features.csv` | segundos | não precisa | qualquer máquina |
 | `experimentos.aproximados_tsplib` (3 heurísticas + 2 aproximados) | `execucoes.csv`, `subrotinas.csv` e as versões `_sem_gc` | ~4 s | **não** (tempo é a medida) | máquina de referência |
-| `experimentos.aproximados_aleatorios` | `subrotinas_aleatorias_e1.csv`, `regressao_e1_aproximados.csv`, `graficos_e1/` | ~5 min (Christofides com N=1000 leva ~11 s por execução) | **não** | máquina de referência |
+| `experimentos.aproximados_aleatorios` (3 heurísticas + 2 aproximados) | `subrotinas_aleatorias_e1.csv` (a regressão e os gráficos saem de `analises.e1`) | ~6–7 min (com N=1000, Christofides leva ~10 s e a inserção ~3 s por execução) | **não** | máquina de referência |
 | `experimentos.branch_and_bound`, 9 pequenas | `bnb_pequenas.csv` | ~2 min | **não** (`--processos 1`) | máquina de referência |
+| `experimentos.branch_and_bound`, 4 extras (só Christofides) | `bnb_extras.csv` | ~2 min | **não** | máquina de referência |
+| `experimentos.bnb_aleatorias` (45 instâncias, só Christofides) | `bnb_aleatorias.csv` | ~15–30 min | **não** | máquina de referência |
 | `experimentos.branch_and_bound`, 3 grandes | `bnb_<instancia>.csv` | 5 × 30 min = 2,5 h por instância | **sim** | qualquer máquina, mas as 5 estratégias de uma instância juntas |
-| `experimentos.branch_and_bound --consolidar` | `otimos_bnb.csv` | segundos | não | quem juntar os resultados |
+| `experimentos.branch_and_bound --consolidar` | `otimos_bnb.csv` | segundos | não | quem juntar os resultados (passo 5) |
+| `experimentos.verificar` | nada (só confere) | segundos | não | quem juntar os resultados (passo 5) |
 
 **Máquina de referência:** a mais rápida do grupo, de preferência um desktop.
 Ela roda tudo o que é medido em tempo; o relatório informa o processador, a
@@ -332,12 +352,27 @@ RAM e a versão do Python dela (e das outras, para o B&B grande).
 
 ```bash
 git pull                      # todos no mesmo commit
-make install                  # mesmas versões das bibliotecas
+make install                  # cria o .venv e instala as mesmas versões
+source .venv/bin/activate     # sem isto, "python" pode ser o do sistema
 make check                    # tudo passando antes de medir
 ```
 
-Notebook na tomada, em modo desempenho, sem programas pesados abertos (o
-navegador conta). Não usar a máquina para outra coisa enquanto mede.
+Todos os comandos abaixo supõem o ambiente ativado (`source
+.venv/bin/activate` em cada terminal novo). Notebook na tomada, em modo
+desempenho, sem programas pesados abertos (o navegador conta). Não usar a
+máquina para outra coisa enquanto mede.
+
+**Testes rápidos antes de rodar de verdade:** sempre com uma `--saida` fora
+de `resultados/`, por exemplo:
+
+```bash
+python -m experimentos.branch_and_bound --instancias burma14 --limite-tempo 5 \
+    --saida /tmp/teste_bnb.csv
+```
+
+Se um teste for gravado por engano no arquivo oficial, a execução real para
+com erro (limite de tempo diferente) em vez de aproveitar o resultado do
+teste; nesse caso, apague o arquivo e rode de novo.
 
 **Passo 1: features (qualquer máquina).**
 
@@ -362,10 +397,31 @@ python -m experimentos.branch_and_bound --processos 1 \
     --saida resultados/bnb_pequenas.csv
 ```
 
-Opcionais, também aqui: `--estrategias sem_warm_start` (B&B a frio, útil
-porque em dantzig42 o trivial é quase ótimo) e instâncias que o B&B resolve
-em menos de 1 min fora do conjunto (dantzig42, swiss42, eil51), para ter mais
-pontos na regressão do B&B, numa saída separada (`bnb_extra.csv`).
+**Passo 3b: conjunto de regressão do B&B (máquina de referência, sequencial).**
+Só para o E1 (ver 6.6). Roda **só com o warm-start do Christofides**, para que
+a regressão compare instâncias, não estratégias.
+
+```bash
+# 4 instâncias extras da TSPLIB (conjunto = extra), ~2 min
+python -m experimentos.branch_and_bound --processos 1 \
+    --instancias swiss42 dantzig42 hk48 eil51 --estrategias christofides \
+    --saida resultados/bnb_extras.csv
+
+# 45 instâncias aleatórias: N = 10, 15, …, 50 × 5 sementes (conjunto = aleatorio)
+python -m experimentos.bnb_aleatorias --processos 1 \
+    --tamanhos 10 15 20 25 30 35 40 45 50 --sementes 5 --estrategias christofides \
+    --saida resultados/bnb_aleatorias.csv
+```
+
+Os valores acima são os padrões; estão explícitos para ficar claro o que roda.
+As aleatórias são geradas de forma determinística a partir de (N, semente):
+qualquer máquina gera as mesmas instâncias.
+
+Opcional: `--estrategias sem_warm_start` nas 12 principais, numa `--saida`
+própria (ex.: `resultados/bnb_sem_warm_start.csv`). É o B&B a frio de fato,
+sem nenhum limite superior inicial; o "trivial" já é um warm-start ruim nas
+principais (gap de 22% a 188%), então este nível só mostra o quanto até um
+limite ruim ajuda. O `verificar` não exige essas linhas.
 
 **Passo 4: B&B nas 3 instâncias grandes (pode ser em paralelo).** O tempo
 aqui é sempre ~1800 s (NA); o que se compara são os nós expandidos e o melhor
@@ -390,14 +446,39 @@ condições**. Duas opções, ambas com ~2,5 h de relógio:
 Nunca rodar o passo 4 **na máquina de referência ao mesmo tempo** que os
 passos 2 e 3. Se cair, é só rodar o mesmo comando: o script retoma.
 
-**Passo 5: juntar os resultados.** Cada pessoa commita só o próprio
-`resultados/bnb_*.csv` (arquivos diferentes, sem conflito no git). Depois:
+**Passo 5: juntar e conferir os resultados.** Cada um commita só os arquivos
+que gerou (todos têm nomes diferentes, então não há conflito no git):
+
+| Quem | Commita em `resultados/` |
+|---|---|
+| Quem rodou o passo 1 | `features.csv` |
+| Máquina de referência (passos 2, 3 e 3b) | `execucoes*.csv`, `subrotinas*.csv`, `subrotinas_aleatorias_e1.csv`, `bnb_pequenas.csv`, `bnb_extras.csv`, `bnb_aleatorias.csv` |
+| Cada máquina do passo 4 | o seu `bnb_<instancia>.csv` (ou `bnb_grandes.csv`) |
+
+Ninguém commita `otimos_bnb.csv` durante as execuções (nenhuma execução o
+gera). Depois que todos commitarem, **uma pessoa** roda:
 
 ```bash
-python -m experimentos.branch_and_bound --consolidar
+git pull                                              # traz os CSVs de todos
+python -m experimentos.branch_and_bound --consolidar  # gera otimos_bnb.csv completo
+python -m experimentos.verificar                      # confere se não falta nada
+git add resultados/otimos_bnb.csv && git commit -m "consolidar ótimos do B&B"
 ```
 
-**Passo 6: análises (ainda a implementar).**
+O `verificar` compara `resultados/` com este plano e lista, por passo, o que
+falta, o que está duplicado, execuções com parâmetros diferentes dos oficiais
+(limite de 1800 s, Held-Karp), um `otimos_bnb.csv` desatualizado e tempos
+comparados vindos de mais de um processador. Só seguir para as análises com
+"Coleta completa." (código de saída 0).
+
+**Passo 6: análises (camada `analises/`, qualquer máquina, segundos).** Leem
+só `resultados/` e gravam em `relatorio/` (ver [ESTRUTURA.md](ESTRUTURA.md)).
+
+```bash
+python -m analises.e1        # pronto: regressão e gráficos dos aproximados
+```
+
+A implementar:
 - Preencher `gap_bnb` dos aproximados e das heurísticas com `otimos_bnb.csv`.
 - E1 do B&B: regressão de `tempo_bnb_s` contra aⁿ, n²·2ⁿ e n! nas execuções OK.
 - E2: tabela instância × estratégia, correlação gap inicial × nós, trade-off
@@ -408,14 +489,48 @@ python -m experimentos.branch_and_bound --consolidar
 
 | Quem | 21/11 | 22/11 | 23/11 |
 |---|---|---|---|
-| Pessoa 1 (máquina de referência) | passos 0–3, depois passo 4 com att48 | E1 e E2 | revisão |
+| Pessoa 1 (máquina de referência) | passos 0–3b, depois passo 4 com att48 | E1 e E2 | revisão |
 | Pessoa 2 | passo 4 com berlin52 | E3 | conclusões |
 | Pessoa 3 | passo 4 com st70; passo 1 | seções 1 e 2 do relatório | anexo de prompts |
 
 Entrega: 24/11 às 23h59. O dia 24 fica de folga para imprevistos.
 
-### 6.5 Pendências antes de rodar
+### 6.5 Observações
 
-- O `aproximados_tsplib` roda as 18 instâncias, não só as 12 selecionadas.
-  Isso dá mais pontos ao E1 e ao E3, mas o relatório deve dizer quais entram
-  em cada análise.
+- O `aproximados_tsplib` roda as 18 instâncias da pasta, não só as 12
+  principais. No E1 todas podem entrar; no E3 só as 13 com ótimo provado
+  (seção 3). O relatório deve dizer quais instâncias entram em cada análise.
+- Todos os CSVs de coleta têm as colunas `processador`, `nucleos_fisicos`,
+  `nucleos_logicos` e `python`: o hardware da máquina de referência para o
+  relatório sai dos próprios dados.
+
+### 6.6 Regressão do B&B em três níveis
+
+A regressão do B&B (tempo e nós expandidos × N, contra aⁿ, n²·2ⁿ e n!) é
+feita em três níveis, para comparar a qualidade do ajuste conforme a amostra
+cresce. Os níveis são separados pela coluna **`conjunto`** dos CSVs do B&B, e
+cada linha leva o seu rótulo desde a coleta: nenhum cruzamento depende do nome
+do arquivo.
+
+| Nível | Filtro (`conjunto`) | Arquivos | Pontos que terminam (OK) | Faixa de N |
+|---|---|---|---|---|
+| 1. Principal | `principal` | `bnb_pequenas.csv`, `bnb_<grande>.csv` | 9 | 14–29 |
+| 2. Principal + extras | `principal` ou `extra` | os de cima + `bnb_extras.csv` | 13 | 14–51 |
+| 3. Aleatórias | `aleatorio` | `bnb_aleatorias.csv` | ~45 | 10–50 |
+
+Regras comuns aos três níveis:
+
+- Só linhas com `estrategia == "christofides"`. As extras e as aleatórias só
+  rodam com ela, e misturar estratégias confundiria o efeito de N com o do
+  warm-start.
+- Só linhas com `status == "OK"` entram no ajuste. As NA (≥ 1800 s) aparecem
+  nos gráficos como pontos censurados, com marcador próprio.
+- No nível 3, ajustar também a mediana por N das 5 sementes. Instâncias com o
+  mesmo N chegam a ter tempos 10× diferentes.
+- O ajuste é em escala log, log(y) contra log(modelo), e reporta R² e RMSE.
+  Ajustar tanto `tempo_bnb_s` quanto `nos_expandidos` (este não depende da
+  máquina).
+- Nos gráficos, uma cor por nível, ou um painel por nível, sempre com a
+  legenda do nível.
+- Todos os tempos usados vêm da máquina de referência (passos 3 e 3b).
+

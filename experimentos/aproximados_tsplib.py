@@ -23,6 +23,7 @@ from typing import Any
 import numpy as np
 
 from experimentos.algoritmos import ALGORITMOS, TIPO, Algoritmo, origem_pontos
+from experimentos.ambiente import info_ambiente
 from tsp.agm import agm_prim, custo_agm
 from tsp.christofides import vertices_grau_impar
 from tsp.instancia import Instancia, carregar_instancia
@@ -118,6 +119,7 @@ def rodar_tsplib(pasta_instancias: Path, desativar_gc: bool = False) -> None:
                     "pico_memoria_bytes": med.picos_memoria_bytes["total"],
                     "gc_desativado": desativar_gc,
                     "status": "OK",
+                    **info_ambiente(),
                 }
             )
 
@@ -131,6 +133,7 @@ def rodar_tsplib(pasta_instancias: Path, desativar_gc: bool = False) -> None:
                         "k_impares": k_impares,
                         "gc_desativado": desativar_gc,
                         **linha,
+                        **info_ambiente(),
                     }
                 )
 
