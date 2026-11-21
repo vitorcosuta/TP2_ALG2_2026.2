@@ -23,6 +23,7 @@ def test_gera_csv_retoma_e_consolida(tmp_path, capsys):
         assert linha["status"] == "OK" and linha["custo"] == "3323"
         assert int(linha["pico_memoria_bytes"]) > 0  # terminou rápido: mede memória
         assert len(linha["tour"].split("-")) == 14
+        assert linha["processador"] and int(linha["nucleos_logicos"]) >= 1
 
     # Rodar de novo pula o que já existe e só acrescenta o que falta.
     main([*base, "--estrategias", "trivial", "sem_warm_start"])

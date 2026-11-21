@@ -139,7 +139,8 @@ python -m experimentos.branch_and_bound --consolidar     # só refaz otimos_bnb.
 | `tempo_limite_inferior_s` | parte da busca gasta calculando limites (profiling) |
 | `tempo_total_s` | heurística + B&B (trade-off do E2) |
 | `pico_memoria_bytes`, `pico_memoria_busca_bytes` | execução separada com `tracemalloc`, só se `OK` em ≤ 120 s; vazio caso contrário |
-| `maquina`, `python`, `data` | auditoria: onde e quando rodou |
+| `processador`, `nucleos_fisicos`, `nucleos_logicos` | modelo do processador e nº de núcleos (lógicos incluem hyper-threading; físicos vazio se o sistema não informar) |
+| `python`, `data` | auditoria: versão do Python e quando rodou |
 
 **`resultados/otimos_bnb.csv`**: uma linha por instância, juntando todos os
 `bnb*.csv` da pasta. É o ótimo de referência para os gaps de todos os
@@ -419,8 +420,6 @@ Entrega: 24/11 às 23h59. O dia 24 fica de folga para imprevistos.
   grava só o custo e o tempo delas; falta medir memória e etapas, por exemplo
   acrescentando-as ao `aproximados_tsplib` (o fecho convexo precisa de
   `instancia.coordenadas`).
-- **Coluna `maquina`** do `bnb.csv`: hoje grava o nome do computador; trocar
-  pelo modelo do processador e o nº de núcleos é mais útil para o relatório.
 - O `aproximados_tsplib` roda as 18 instâncias, não só as 12 selecionadas.
   Isso dá mais pontos ao E1 e ao E3, mas o relatório deve dizer quais entram
   em cada análise.

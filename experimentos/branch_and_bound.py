@@ -37,11 +37,14 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import platform
+import subprocess
 import sys
 from collections.abc import Callable, Iterable
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
+from functools import cache
 from pathlib import Path
 from statistics import median
 from typing import Any
@@ -91,8 +94,64 @@ COLUNAS = [
     "tempo_limite_inferior_s", "tempo_total_s",
     "pico_memoria_bytes", "pico_memoria_busca_bytes",
     # auditoria
-    "tour", "maquina", "python", "data",
+    "tour", "processador", "nucleos_fisicos", "nucleos_logicos", "python", "data",
 ]  # fmt: skip
+
+
+# ------------------------------------------------------------ hardware
+def _comando(*args: str) -> str:
+    try:
+        saida = subprocess.run(
+            args, capture_output=True, text=True, timeout=5, check=False
+        )
+        return saida.stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def _processador_linux() -> tuple[str, int | None]:
+    """Modelo e nº de núcleos físicos lidos de ``/proc/cpuinfo``."""
+    try:
+        texto = Path("/proc/cpuinfo").read_text()
+    except OSError:
+        return "", None
+    modelo, nucleos = "", set()
+    fisico = ""
+    for linha in texto.splitlines():
+        chave, _, valor = (x.strip() for x in linha.partition(":"))
+        if chave == "model name" and not modelo:
+            modelo = valor
+        elif chave == "physical id":
+            fisico = valor
+        elif chave == "core id":
+            nucleos.add((fisico, valor))
+    return modelo, len(nucleos) or None
+
+
+def _processador_macos() -> tuple[str, int | None]:
+    modelo = _comando("sysctl", "-n", "machdep.cpu.brand_string").strip()
+    fisicos = _comando("sysctl", "-n", "hw.physicalcpu").strip()
+    return modelo, int(fisicos) if fisicos.isdigit() else None
+
+
+@cache
+def info_processador() -> dict[str, Any]:
+    """Modelo do processador e nº de núcleos, para o relatório.
+
+    Núcleos físicos ficam vazios quando o sistema não informa (ex.: Windows);
+    os lógicos incluem hyper-threading.
+    """
+    sistema = platform.system()
+    modelo, fisicos = "", None
+    if sistema == "Linux":
+        modelo, fisicos = _processador_linux()
+    elif sistema == "Darwin":
+        modelo, fisicos = _processador_macos()
+    return {
+        "processador": modelo or platform.processor() or platform.machine(),
+        "nucleos_fisicos": "" if fisicos is None else fisicos,
+        "nucleos_logicos": os.cpu_count() or "",
+    }
 
 
 # ------------------------------------------------------------ uma execução
@@ -135,7 +194,7 @@ def _linha(
         "tempo_penalidades_s": r.tempo_penalidades_s,
         "tempo_limite_inferior_s": r.tempo_limite_inferior_s,
         "tour": "-".join(map(str, r.tour)),
-        "maquina": platform.node(),
+        **info_processador(),
         "python": platform.python_version(),
         "data": datetime.now().isoformat(timespec="seconds"),
     }
