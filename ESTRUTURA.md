@@ -166,7 +166,7 @@ Cada script lê CSVs de `resultados/` e grava figuras e tabelas em
 |---|---|---|---|
 | `comum.py` | n/a | n/a | caminhos e `ler_resultado`, `salvar_tabela`, `salvar_figura` |
 | `e1.py` | `subrotinas_aleatorias_e1.csv` | `tabelas/regressao_e1_aproximados.csv`, `figuras/e1/*.png` | **pronto** (regressão dos aproximados) |
-| `gaps.py` | `execucoes.csv`, `otimos_bnb.csv` | tabela de gaps | a implementar |
+| `gaps.py` | `execucoes.csv`, `otimos_bnb.csv` | tabela de gaps | não necessário - E2 e E3 ja cuidam disso |
 | `e1.py` (B&B, GC, profiling) | `bnb_*.csv`, `subrotinas*.csv` | regressão do B&B, com × sem GC, etapa dominante | a implementar |
 | `e2.py` | `bnb_*.csv`, `otimos_bnb.csv` | tabela instância × estratégia, correlações, trade-off | a implementar |
 | `e3.py` | `features.csv`, gaps | modelo do gap × features (leave-one-out) | pronto |
