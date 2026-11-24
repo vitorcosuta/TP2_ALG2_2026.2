@@ -10,7 +10,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import matplotlib
 import pandas as pd
+
+matplotlib.use("Agg")
 
 RAIZ = Path(__file__).resolve().parent.parent
 RESULTADOS = RAIZ / "resultados"
