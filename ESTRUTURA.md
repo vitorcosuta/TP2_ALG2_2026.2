@@ -147,12 +147,23 @@ vai para o repositório.
 | `execucoes.csv`, `execucoes_sem_gc.csv` | algoritmo × instância | `experimentos.aproximados_tsplib` |
 | `subrotinas.csv`, `subrotinas_sem_gc.csv` | algoritmo × instância × etapa | `experimentos.aproximados_tsplib` |
 | `subrotinas_aleatorias_e1.csv` | algoritmo × instância aleatória × etapa | `experimentos.aproximados_aleatorios` |
+| `tempos_brutos_e1.csv` | algoritmo × instância aleatória × etapa × repetição | `experimentos.aproximados_aleatorios` (repetições individuais usadas nos gráficos do E1) |
 | `bnb_*.csv` | instância × estratégia | `experimentos.branch_and_bound` (um arquivo por máquina); `bnb_aleatorias.csv` vem de `experimentos.bnb_aleatorias` |
 | `otimos_bnb.csv` | instância | consolidação dos `bnb_*.csv` (sem as aleatórias) |
 
 O significado das colunas está no [EXPERIMENTOS.md](EXPERIMENTOS.md): o
 `bnb.csv` e o `otimos_bnb.csv` na seção 2.1; as tabelas `execucoes` e
 `subrotinas` na seção 1.
+**Máquinas de coleta.** Os aproximados (`execucoes*`, `subrotinas*`,
+`tempos_brutos_e1.csv`) foram coletados num Intel Core i5-13420H; o B&B
+(`bnb_*.csv`) num processador "Intel64 Family 6 Model 191". Tempos absolutos
+dos dois grupos não são comparáveis entre si; a coluna `processador` de cada
+CSV registra a origem.
+
+**Rodada descartada.** `extras/rodada_maquina_rapida/` guarda uma segunda
+rodada dos aproximados, feita no mesmo processador do B&B. Ela não é usada
+nas análises porque não tem o `tempos_brutos_e1.csv` correspondente; os
+custos são idênticos aos de `resultados/`, só os tempos mudam.
 
 ---
 
