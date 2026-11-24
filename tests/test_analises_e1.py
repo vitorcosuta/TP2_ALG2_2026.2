@@ -45,7 +45,11 @@ def test_regressao_escolhe_o_modelo_certo():
 def test_main_le_resultados_e_escreve_no_relatorio(tmp_path):
     resultados = tmp_path / "resultados"
     resultados.mkdir()
-    _dados_sinteticos().to_csv(resultados / e1.ENTRADA, index=False)
+    dados = _dados_sinteticos()
+    dados.to_csv(resultados / e1.ENTRADA, index=False)
+    # Repetições individuais: o e1 também lê tempos_brutos_e1.csv.
+    brutos = dados.assign(repeticao=1, tempo_s=dados["tempo_mediana_s"])
+    brutos.to_csv(resultados / e1.ENTRADA_BRUTOS, index=False)
     tabelas, figuras = tmp_path / "tabelas", tmp_path / "figuras"
 
     e1.main(resultados, tabelas, figuras)
