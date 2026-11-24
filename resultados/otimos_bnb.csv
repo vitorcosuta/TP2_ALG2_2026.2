@@ -1,0 +1,17 @@
+conjunto,instancia,n,otimo_provado,melhor_custo,maior_limite_raiz,execucoes,execucoes_ok
+principal,burma14,14,True,3323,3323,5,5
+principal,ulysses16,16,True,6859,6803,5,5
+principal,gr17,17,True,2085,2085,5,5
+principal,gr21,21,True,2707,2707,5,5
+principal,ulysses22,22,True,7013,6931,5,5
+principal,gr24,24,True,1272,1270,5,5
+principal,fri26,26,True,937,934,5,5
+principal,bayg29,29,True,1610,1593,5,5
+principal,bays29,29,True,2020,2003,5,5
+extra,swiss42,42,True,1273,1267,1,1
+extra,dantzig42,42,True,699,694,1,1
+extra,hk48,48,True,11461,11366,1,1
+principal,att48,48,True,10628,10461,5,5
+extra,eil51,51,True,426,421,1,1
+principal,berlin52,52,True,7542,7491,5,5
+principal,st70,70,True,675,666,5,3
