@@ -192,4 +192,9 @@ def main(
 
 
 if __name__ == "__main__":
-    main()
+    # O E1 tem três partes; cada uma fica no seu módulo para evitar conflito
+    from analises import e1_bnb, e1_perfil
+
+    main()  # aproximados
+    e1_bnb.main()  # B&B
+    e1_perfil.main()  # etapa GC
